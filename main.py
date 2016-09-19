@@ -2,6 +2,8 @@ import webapp2, jinja2, os, re
 from google.appengine.ext import db
 from models import Post, User
 import hashutils
+'''NOTES FOR NEXT SESSION:
+your templates need to grab each post's username and link to /blog/username. currently, only blog/username does this, but it's a farce. I'm pretty sure it's only because the username is contained in the url. so even though that works, you will want to adjust it when you figure out how to grab individual post's usernames for real. What I don't understand right now is how to properly pass in the usernames from main.py to any.html. Theory: you can reference post.author, but it returns models.User.object at (some hex value). You might be able to turn that object into the username since it's the specific reference for each individual post.'''
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), autoescape = True)
@@ -19,9 +21,11 @@ class BlogHandler(webapp2.RequestHandler):
             Get all posts by a specific user, ordered by creation date (descending).
             The user parameter will be a User object.
         """
-
+        users_posts = Post.all().filter("author", user).order('-created')
+        limit = int(limit)
+        offset = (int(offset))
         # TODO - filter the query so that only posts by the given user
-        return None
+        return users_posts.fetch(limit=limit, offset=offset)
 
     def get_user_by_name(self, username):
         """ Get a user object from the db, based on their username """
@@ -149,13 +153,15 @@ class NewPostHandler(BlogHandler):
 
 class ViewPostHandler(BlogHandler):
 
-    def get(self, id):
+    def get(self, id, username=""):
         """ Render a page with post determined by the id (via the URL/permalink) """
 
         post = Post.get_by_id(int(id))
+        #you screwed with this trying to get it to recognize username. check out what it calls self.user by viewing any single post
+
         if post:
             t = jinja_env.get_template("post.html")
-            response = t.render(post=post)
+            response = t.render(post=post,username=username)
         else:
             error = "there is no post with id %s" % id
             t = jinja_env.get_template("404.html")
@@ -288,7 +294,7 @@ class LogoutHandler(BlogHandler):
 
     def get(self):
         self.logout_user()
-        self.redirect('/blog')
+        self.redirect('/')
 
 app = webapp2.WSGIApplication([
     ('/', IndexHandler),
